@@ -1,0 +1,52 @@
+<section class="board" x-data='slid({{ cfg | tojson }})' @keydown.window="onKey($event)">
+
+  <!-- The labels sit in the corners of the puzzle block, so they line up with its edges. -->
+  <div class="puzzle">
+    <div class="puzzle-bar">
+      <h2 class="puzzle-date"><span x-text="shortDate"></span> <b>#{{ cfg.number }}</b></h2>
+      <!-- Turns muted once the move count has gone past it. -->
+      <span class="challenge" :class="{ missed: moves > challenge }"
+        title="{{ t.challenge_hint.replace('{n}', p.challenge | string) }}">{{ t.challenge.replace("{n}", p.challenge | string) }}</span>
+    </div>
+
+    <div class="target" aria-label="{{ t.target_word.replace('{word}', p.shown) }}">
+      {%- for letter in p.shown %}<span>{{ letter }}</span>{% endfor -%}
+    </div>
+
+    <!-- Tiles are absolutely placed by their --r/--c, so a move is a CSS transition. -->
+    <!-- Swipes: on a tile they push it (and the tiles between it and the gap); elsewhere they act like arrow keys. -->
+    <div class="grid" style="--rows: {{ p.rows }}; --cols: {{ p.cols }}" :class="{ ready, over: won }"
+      @pointerdown="swipeStart($event)" @pointermove.window="swipeMove($event)"
+      @pointerup.window="swipe = null" @pointercancel.window="swipe = null">
+      {% for _ in p.start %}<div class="slot" aria-hidden="true"></div>{% endfor %}
+      {% for cell, letter in tiles %}{% set id = loop.index0 %}
+      <button type="button" class="tile" data-id="{{ id }}" style="--r: {{ cell // p.cols }}; --c: {{ cell % p.cols }}"
+        :style="place({{ id }})" :class="cls({{ id }})" @click="tap({{ id }})" :disabled="won"
+        :aria-label="label({{ id }})">{{ letter }}</button>
+      {% endfor %}
+    </div>
+
+    <div class="puzzle-bar">
+      <span class="moves"><b x-text="moves">0</b> <span x-text="movesWord">{{ t.move_other }}</span></span>
+      <span class="hint" x-show="!won"><span class="hint-keys">{{ t.controls_hint }}</span><span class="hint-touch">{{ t.touch_hint }}</span></span>
+      <span class="solved-tag" x-show="won" x-cloak>{{ t.won }}</span>
+    </div>
+  </div>
+
+  <dialog class="modal" x-ref="modal" @click.self="$el.close()">
+    <div class="modal-body" tabindex="-1" autofocus>
+      <h2>{{ t.solved_title }}</h2>
+      <p class="sub">Slid #{{ cfg.number }} · <span x-text="shortDate"></span></p>
+      <div class="preview" aria-label="{{ p.shown }}">
+        {%- for letter in p.shown %}<i style="--k: {{ loop.index0 }}">{{ letter }}</i>{% endfor -%}
+      </div>
+      <p class="score"><b x-text="moves"></b> <span x-text="movesWord"></span></p>
+      <p class="challenge-result" :class="{ met: moves <= challenge }" x-text="challengeResult"></p>
+      <p class="next" x-show="isToday">{{ t.next_word }} <strong x-text="countdown"></strong></p>
+      <div class="actions">
+        <button class="primary" @click="share()" x-text="copied ? {{ t.copied|js }} : {{ t.share|js }}"></button>
+        <button data-cuelume-press @click="$refs.modal.close(); navigate('/calendar')">{{ t.past_games }}</button>
+      </div>
+    </div>
+  </dialog>
+</section>

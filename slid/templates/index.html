@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="{{ lang }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Slid</title>
+  <meta name="description" content="{{ t.description }}">
+  <link rel="icon" href="/static/icons/icon.svg" type="image/svg+xml">
+  <link rel="icon" href="/favicon.ico" sizes="48x48">
+  <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#f4efe6" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#1b1916" media="(prefers-color-scheme: dark)">
+  <meta name="apple-mobile-web-app-title" content="Slid">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="stylesheet" href="/static/style.css">
+  <!-- Strings app.js builds at runtime (titles, share text, calendar labels). -->
+  <script>window.I18N = {{ t | tojson }};</script>
+  <script defer src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.10/dist/htmx.min.js"></script>
+  <script defer src="/static/app.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.17.3/dist/cdn.min.js"></script>
+  <script type="module">
+    import * as cuelume from "https://cdn.jsdelivr.net/npm/cuelume@0.2.2/+esm";
+    const soundOn = () => { try { return localStorage.getItem("slid:sound") !== "off" } catch { return true } };
+    cuelume.setEnabled(soundOn());
+    cuelume.bind();
+    window.cuelume = cuelume;
+
+    // Cuelume's limiter starts clamped and only relaxes while sound passes through it,
+    // so the first few cues come out much quieter. Push inaudible chimes through first.
+    let warmed = false;
+    window.warmAudio = async () => {
+      if (warmed || !soundOn() || navigator.userActivation?.hasBeenActive === false) return;
+      warmed = true;
+      for (let i = 0; i < 3; i++) {
+        cuelume.play("chime", { volume: 0.001 });
+        await new Promise((r) => setTimeout(r, 300));
+      }
+    };
+    for (const type of ["pointerdown", "pointerup", "keydown"]) {
+      addEventListener(type, () => warmAudio(), { capture: true });
+    }
+  </script>
+</head>
+<body>
+  <header class="top" x-data>
+    <a class="icon-btn" href="/calendar" @click.prevent="navigate('/calendar')" data-cuelume-press
+      aria-label="{{ t.past_games }}" title="{{ t.past_games }}" :aria-current="$store.view === 'calendar' ? 'page' : null">
+      <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/>
+        <rect x="7" y="13" width="3" height="3" rx=".6" fill="currentColor" stroke="none"/>
+        <rect x="14" y="13" width="3" height="3" rx=".6" fill="currentColor" stroke="none"/></svg>
+    </a>
+    <h1 class="logo">
+      <a href="/" @click.prevent="navigate('/')" aria-label="{{ t.today_link }}">
+        <span aria-hidden="true">S</span><span aria-hidden="true">L</span><span aria-hidden="true">I</span><span aria-hidden="true">D</span>
+      </a>
+    </h1>
+    <div class="top-actions">
+      <div class="lang" x-data="langMenu" @click.outside="close(false)" @keydown.escape="close(true)"
+        @keydown.arrow-down.prevent.stop="step(1)" @keydown.arrow-up.prevent.stop="step(-1)">
+        <button class="icon-btn lang-btn" x-ref="button" @click="toggle()" data-cuelume-press
+          aria-haspopup="menu" :aria-expanded="open.toString()" aria-label="{{ t.language }}" title="{{ t.language }}">
+          <span aria-hidden="true">{{ lang.split('-')[0] | upper }}</span>
+        </button>
+        <div class="lang-menu" role="menu" aria-label="{{ t.language }}" x-show="open" x-cloak
+          x-transition:enter="menu-enter" x-transition:enter-start="menu-from" x-transition:leave="menu-leave" x-transition:leave-end="menu-from">
+          {% for code, name in langs.items() %}
+          <button role="menuitemradio" aria-checked="{{ 'true' if code == lang else 'false' }}" lang="{{ code }}"
+            data-cuelume-press @click="close(true); setLanguage('{{ code }}')">
+            <span class="lang-name">{{ name }}</span>
+            <span class="lang-code">{{ code.split('-')[0] | upper }}</span>
+            <svg class="lang-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          {% endfor %}
+        </div>
+      </div>
+      <button class="icon-btn" data-cuelume-toggle
+        x-data="{ on: (() => { try { return localStorage.getItem('slid:sound') !== 'off' } catch { return true } })() }"
+        @click="on = !on; window.cuelume?.setEnabled(on); try { localStorage.setItem('slid:sound', on ? 'on' : 'off') } catch {}; on && window.warmAudio?.()"
+        :aria-pressed="on.toString()" :aria-label="on ? {{ t.mute|js }} : {{ t.unmute|js }}" :title="on ? {{ t.mute|js }} : {{ t.unmute|js }}">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" fill="currentColor"/>
+          <path x-show="on" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <path x-show="!on" x-cloak d="M16 9.5l5 5m0-5l-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+      <button class="icon-btn" data-cuelume-press @click="$dispatch('slid-help')" aria-label="{{ t.how_to_play }}" title="{{ t.how_to_play }}">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/>
+          <path d="M9.6 9.4a2.5 2.5 0 1 1 3.6 2.3c-.8.4-1.2 1-1.2 1.8v.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <circle cx="12" cy="17.3" r="1.2" fill="currentColor"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Opens by itself until the player has at least one saved game. -->
+  <dialog class="modal help" x-data="help" x-ref="dialog" @slid-help.window="$refs.dialog.showModal()" @click.self="$el.close()">
+    <div class="modal-body" tabindex="-1" autofocus>
+      <h2>{{ t.how_to_play }}</h2>
+      <ol class="steps">
+        <li>
+          <p>{{ t.step_slide | safe }}</p>
+          <div class="ex" aria-hidden="true"><i>R</i><i>O</i><i class="gap"></i><i class="slide">P</i></div>
+        </li>
+        <li>
+          <p>{{ t.step_push | safe }}</p>
+          <div class="ex" aria-hidden="true"><i class="push">A</i><i class="push">B</i><i class="push">C</i><i class="gap"></i></div>
+        </li>
+        <li>
+          <p>{{ t.step_spell | safe }}</p>
+          <div class="ex" aria-hidden="true"><i class="hit">R</i><i class="hit">O</i><i class="hit">P</i><i class="hit">E</i></div>
+        </li>
+        <li>
+          <p>{{ t.step_short | safe }}</p>
+          <div class="ex" aria-hidden="true"><i class="hit">S</i><i class="hit">U</i><i class="hit">N</i><i class="gap"></i></div>
+        </li>
+        <li><p>{{ t.step_moves | safe }}</p></li>
+        <li><p>{{ t.step_challenge | safe }}</p></li>
+        <li><p>{{ t.step_daily | safe }}</p></li>
+      </ol>
+      <div class="actions">
+        <button class="primary" data-cuelume-press @click="$refs.dialog.close()">{{ t.lets_play }}</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- One page shell; app.js shows the board or the calendar based on the URL. -->
+  <main id="game" x-data x-show="$store.view === 'board'"></main>
+
+  <main class="calendar-page" x-data x-show="$store.view === 'calendar'" x-cloak>
+    <h2 class="page-title">{{ t.past_games }}</h2>
+    <section class="calendar" id="calendar" x-data='calendar({{ launch | tojson }})'
+      @slid-update.window="refresh()" @slid-open.window="show($event.detail)">
+      <header>
+        <button class="nav" @click="shift(-1)" :disabled="!canPrev" aria-label="{{ t.prev_month }}">‹</button>
+        <h2 x-text="monthLabel"></h2>
+        <button class="nav" @click="shift(1)" :disabled="!canNext" aria-label="{{ t.next_month }}">›</button>
+      </header>
+      <div class="weekdays" aria-hidden="true">
+        <template x-for="w in weekdays"><span x-text="w"></span></template>
+      </div>
+      <div class="days">
+        <template x-for="d in days" :key="d.key">
+          <button class="day" :class="d.cls" :disabled="!d.iso || d.disabled" @click="open(d.iso)"
+            :aria-label="d.label" :aria-current="d.iso === current ? 'date' : null"
+            data-cuelume-press x-text="d.day"></button>
+        </template>
+      </div>
+      <p class="legend"><i class="won"></i>{{ t.won }} <i class="playing"></i>{{ t.playing }}</p>
+    </section>
+  </main>
+</body>
+</html>

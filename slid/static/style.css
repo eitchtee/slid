@@ -1,0 +1,496 @@
+:root {
+  --bg: #f4efe6;
+  --surface: #fffaf2;
+  --ink: #2a2622;
+  --muted: #8a8177;
+  --line: #d9cfc0;
+  --line-strong: #8a8177;
+  --well: #e8dfd1;
+  --tile: #fffaf2;
+  --tile-edge: #cdbfaa;
+  --accent: #d2553c;
+  --ok: #4f8a5b;
+  --ok-edge: #3a6a45;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1b1916;
+    --surface: #24211d;
+    --ink: #ece4d6;
+    --muted: #8f8679;
+    --line: #3a352f;
+    --line-strong: #6f675d;
+    --well: #141210;
+    --tile: #302b25;
+    --tile-edge: #0f0d0b;
+    --accent: #e0694f;
+    --ok: #5f9d6c;
+    --ok-edge: #2f5838;
+    color-scheme: dark;
+  }
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+:focus:not(:focus-visible) { outline: none; }
+[x-cloak] { display: none !important; }
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background: var(--bg);
+  color: var(--ink);
+  font: 16px/1.4 ui-rounded, "SF Pro Rounded", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Top bar: calendar left, buttons right, logo pinned to the true centre
+   (the side groups differ in width, so a centred grid column would drift). */
+.top {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.logo {
+  position: absolute;
+  left: 50%;
+  translate: -50% 0;
+  margin: 0;
+  line-height: 1;
+}
+.logo a { display: flex; gap: 3px; color: inherit; text-decoration: none; }
+/* The logo is four little tiles, the last one sitting a notch lower as if mid-slide. */
+.logo span {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  background: var(--ink);
+  color: var(--bg);
+  font-size: 19px;
+  font-weight: 800;
+}
+.logo span:last-child { background: var(--ok); color: #fff; translate: 0 3px; }
+.top-actions { display: flex; gap: 2px; }
+.icon-btn {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+.icon-btn svg { width: 22px; height: 22px; }
+.icon-btn[aria-pressed="false"] { color: var(--muted); }
+.icon-btn[aria-current="page"] { background: color-mix(in srgb, var(--ink) 10%, transparent); }
+@media (hover: hover) { .icon-btn:hover { background: color-mix(in srgb, var(--ink) 8%, transparent); } }
+.icon-btn:active { transform: scale(0.94); }
+
+/* Board */
+
+.board {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 16px 32px;
+}
+
+/* Shrink-wraps the grid so the bars above and below span exactly its width. */
+.puzzle { display: flex; flex-direction: column; gap: 10px; }
+.puzzle-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  min-height: 24px;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+.puzzle-date { margin: 0; font-size: 15px; font-weight: 600; color: var(--ink); }
+.puzzle-date b { margin-left: 4px; color: var(--muted); font-weight: 600; }
+.moves b { color: var(--ink); font-size: 18px; }
+.challenge { font-weight: 600; color: var(--ink); transition: color 200ms ease, opacity 200ms ease; }
+.challenge.missed { color: var(--muted); opacity: 0.6; text-decoration: line-through; }
+.challenge-result { font-size: 14px; color: var(--muted); }
+.challenge-result.met { color: var(--ok); font-weight: 600; }
+.solved-tag { color: var(--ok); font-weight: 700; }
+/* Touchscreens get the swipe hint; anything with a mouse gets the keyboard one. */
+.hint-touch { display: none; }
+@media (hover: none) and (pointer: coarse) {
+  .hint-keys { display: none; }
+  .hint-touch { display: inline; }
+}
+
+.target { display: flex; justify-content: center; gap: 6px; margin: 4px 0; }
+.target span {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 34px;
+  border-bottom: 3px solid var(--ink);
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.grid {
+  --gap: 6px;
+  /* Tiles shrink to fit narrow screens, capped so big screens don't get giant blocks. */
+  --size: clamp(40px, calc((min(100vw, 560px) - 32px - 2 * var(--gap) - (var(--cols) - 1) * var(--gap)) / var(--cols)), 72px);
+  --step: calc(var(--size) + var(--gap));
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(var(--cols), var(--size));
+  grid-auto-rows: var(--size);
+  gap: var(--gap);
+  padding: var(--gap);
+  border-radius: 16px;
+  background: var(--well);
+  box-shadow: inset 0 2px 4px rgb(0 0 0 / 0.08);
+  /* The board takes swipes itself, so the page mustn't scroll or zoom from gestures that start on it. */
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+.slot { border-radius: 10px; background: color-mix(in srgb, var(--ink) 4%, transparent); }
+
+.tile {
+  position: absolute;
+  top: var(--gap);
+  left: var(--gap);
+  width: var(--size);
+  height: var(--size);
+  translate: calc(var(--c) * var(--step)) calc(var(--r) * var(--step));
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: var(--tile);
+  color: var(--ink);
+  box-shadow: 0 3px 0 var(--tile-edge), 0 4px 10px rgb(0 0 0 / 0.08);
+  font: 800 calc(var(--size) * 0.46) / 1 ui-rounded, "SF Pro Rounded", system-ui, sans-serif;
+  cursor: default;
+}
+.grid.ready .tile {
+  transition:
+    translate 140ms cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 250ms ease,
+    color 250ms ease,
+    box-shadow 250ms ease,
+    opacity 400ms ease;
+}
+.tile.movable { cursor: pointer; }
+@media (hover: hover) {
+  .tile.movable:hover { background: color-mix(in srgb, var(--ok) 12%, var(--tile)); }
+}
+.tile.movable:active { scale: 0.96; }
+.tile:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.tile.err { animation: shake 300ms ease; }
+
+/* The word lights up letter by letter once the winning tile lands. */
+.tile.hit {
+  background: var(--ok);
+  color: #fff;
+  box-shadow: 0 3px 0 var(--ok-edge);
+  animation: pop 380ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+  animation-delay: calc(140ms + var(--k, 0) * 70ms);
+}
+.grid.over .tile:not(.hit) { opacity: 0.4; }
+.tile:disabled { cursor: default; }
+
+@keyframes shake {
+  25% { transform: translateX(-3px); }
+  75% { transform: translateX(3px); }
+}
+@keyframes pop {
+  0% { scale: 1; }
+  45% { scale: 1.1; }
+  100% { scale: 1; }
+}
+
+/* Modals */
+
+.modal {
+  border: 0;
+  padding: 0;
+  border-radius: 20px;
+  background: var(--surface);
+  color: var(--ink);
+  width: min(340px, calc(100vw - 32px));
+  box-shadow: 0 24px 60px rgb(0 0 0 / 0.25);
+}
+.modal[open] { animation: modal-in 260ms cubic-bezier(0.2, 0.9, 0.3, 1.1); }
+.modal::backdrop { background: rgb(20 16 12 / 0.45); animation: fade-in 200ms ease; }
+.modal-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 24px 20px 20px;
+  text-align: center;
+}
+.modal-body:focus { outline: none; }
+.modal h2 { margin: 0; font-size: 24px; }
+.modal p { margin: 0; }
+.modal .sub, .modal .next { color: var(--muted); font-size: 14px; }
+.modal .next strong { color: var(--ink); font-variant-numeric: tabular-nums; }
+
+.preview { display: flex; gap: 4px; margin: 4px 0; }
+.preview i {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: var(--ok);
+  box-shadow: 0 3px 0 var(--ok-edge);
+  color: #fff;
+  font-style: normal;
+  font-size: 20px;
+  font-weight: 800;
+}
+.modal[open] .preview i { animation: pop 380ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both; animation-delay: calc(200ms + var(--k) * 60ms); }
+.score { font-size: 15px; color: var(--muted); }
+.score b { color: var(--ink); font-size: 32px; font-variant-numeric: tabular-nums; margin-right: 2px; }
+
+.actions { display: flex; gap: 8px; margin-top: 4px; }
+.actions button {
+  font: inherit;
+  font-size: 15px;
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 20px;
+  cursor: pointer;
+  background: var(--bg);
+  color: var(--ink);
+}
+.actions button.primary { background: var(--ok); color: #fff; }
+.actions button:active { transform: scale(0.97); }
+
+@keyframes modal-in { from { opacity: 0; transform: translateY(12px) scale(0.96); } }
+@keyframes fade-in { from { opacity: 0; } }
+
+/* How to play */
+.modal.help { width: min(400px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); }
+.help .modal-body { align-items: stretch; text-align: left; gap: 10px; }
+.help h2 { text-align: center; }
+.help .actions { justify-content: center; }
+.steps { margin: 4px 0 0; padding: 0; list-style: none; counter-reset: step; display: flex; flex-direction: column; gap: 14px; }
+.steps li { counter-increment: step; position: relative; padding-left: 32px; font-size: 14.5px; }
+.steps li::before {
+  content: counter(step);
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: var(--ink);
+  color: var(--bg);
+  font: 800 12px/22px ui-rounded, "SF Pro Rounded", system-ui, sans-serif;
+  text-align: center;
+}
+.steps p { margin: 0; }
+kbd {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--bg);
+  box-shadow: inset 0 -1px 0 var(--line);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.ex { display: flex; gap: 4px; margin-top: 8px; }
+.ex i {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  background: var(--tile);
+  box-shadow: 0 2px 0 var(--tile-edge);
+  font-style: normal;
+  font-weight: 800;
+}
+.ex i.gap { background: var(--well); box-shadow: none; }
+.ex i.hit { background: var(--ok); box-shadow: 0 2px 0 var(--ok-edge); color: #fff; }
+/* The P keeps sliding into the gap next to it, then back. */
+.ex i.slide { animation: ex-slide 2.4s cubic-bezier(0.22, 1, 0.36, 1) infinite; }
+/* The whole ABC run steps right into the gap together. */
+.ex i.push { animation: ex-push 2.4s cubic-bezier(0.22, 1, 0.36, 1) infinite; }
+@keyframes ex-push {
+  0%, 35% { translate: 0 0; }
+  45%, 85% { translate: 34px 0; }
+  95%, 100% { translate: 0 0; }
+}
+@keyframes ex-slide {
+  0%, 35% { translate: 0 0; }
+  45%, 85% { translate: -34px 0; }
+  95%, 100% { translate: 0 0; }
+}
+
+/* Past games page */
+.calendar-page { padding: 20px 16px 40px; }
+.page-title { margin: 0 0 14px; text-align: center; font-size: 20px; }
+.calendar {
+  width: min(100% - 32px, 340px);
+  margin: 0 auto 40px;
+  padding: 16px;
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.calendar header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.calendar h2 { margin: 0; font-size: 16px; }
+.calendar .nav {
+  font: inherit;
+  font-size: 20px;
+  line-height: 1;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--ink);
+  cursor: pointer;
+}
+.calendar .nav:disabled { opacity: 0.25; cursor: default; }
+.weekdays, .days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.weekdays span { text-align: center; font-size: 11px; color: var(--muted); padding-bottom: 2px; }
+
+.day {
+  position: relative;
+  aspect-ratio: 1;
+  border: 0;
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: transform 120ms ease;
+}
+.day:not(:disabled):active { transform: scale(0.94); }
+.day:disabled { background: none; color: var(--line); cursor: default; }
+.day:not([aria-label]) { visibility: hidden; }
+.day.won { background: var(--ok); color: #fff; }
+.day.playing::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 4px;
+  width: 4px;
+  height: 4px;
+  margin-left: -2px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.day.today { box-shadow: inset 0 0 0 2px var(--ink); }
+.day.current { outline: 2px solid var(--muted); outline-offset: 2px; }
+
+.legend {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px 12px;
+  flex-wrap: wrap;
+  margin: 12px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: -6px; vertical-align: -1px; }
+.legend .won { background: var(--ok); }
+.legend .playing { width: 4px; height: 4px; border-radius: 50%; background: var(--muted); }
+
+#debug-reset {
+  position: fixed;
+  right: 8px;
+  bottom: 8px;
+  z-index: 10;
+  font: 12px/1 system-ui, sans-serif;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+}
+
+@media (max-width: 400px) {
+  .icon-btn { width: 36px; height: 36px; }
+  .logo span { width: 26px; height: 26px; font-size: 16px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .grid.ready .tile { transition: none; }
+  .tile.err, .tile.hit, .ex i.slide, .ex i.push, .modal[open] .preview i { animation: none; }
+  .modal[open], .modal::backdrop { animation: none; }
+}
+
+/* Language menu */
+.lang { position: relative; }
+.lang-btn { font: 700 13px/1 system-ui, sans-serif; letter-spacing: 0.04em; }
+.lang-btn[aria-expanded="true"] { background: color-mix(in srgb, var(--ink) 10%, transparent); }
+.lang-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 20;
+  min-width: 190px;
+  padding: 6px;
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--line), 0 12px 32px rgb(0 0 0 / 0.14);
+  transform-origin: top right;
+}
+.lang-menu button {
+  display: grid;
+  grid-template-columns: 1fr auto 18px;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 10px 10px 12px;
+  border: 0;
+  border-radius: 9px;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: 15px;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+@media (hover: hover) { .lang-menu button:hover { background: var(--bg); } }
+.lang-menu button:focus-visible { outline: none; background: var(--bg); box-shadow: inset 0 0 0 2px var(--ink); }
+.lang-menu button[aria-checked="true"] { font-weight: 600; }
+.lang-code { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: var(--muted); }
+.lang-check { width: 18px; height: 18px; color: var(--ok); visibility: hidden; }
+[aria-checked="true"] > .lang-check { visibility: visible; }
+
+.menu-enter { transition: opacity 140ms ease-out, transform 160ms cubic-bezier(0.2, 0.9, 0.3, 1.1); }
+.menu-leave { transition: opacity 90ms ease-in, transform 90ms ease-in; }
+.menu-from { opacity: 0; transform: translateY(-4px) scale(0.96); }
+@media (prefers-reduced-motion: reduce) { .menu-enter, .menu-leave { transition: none; } }
+
+/* Phones: logo on its own row, every icon grouped and centred on a second row below it. */
+@media (max-width: 600px) {
+  .top { flex-wrap: wrap; justify-content: center; gap: 8px 2px; padding: 12px 12px 8px; }
+  .logo { order: -1; position: static; translate: none; flex-basis: 100%; display: flex; justify-content: center; }
+  .top-actions { gap: 2px; }
+  /* The picker now sits mid-row, so centre its menu under it instead of hanging off the left edge. */
+  .lang-menu { right: auto; left: 50%; translate: -50% 0; transform-origin: top center; }
+}

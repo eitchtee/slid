@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- A 3x3 sliding board: the middle row spells the word, bottom-right is the gap -->
+  <rect width="32" height="32" rx="7" fill="#2a2622"/>
+  <rect x="5.9" y="5.9" width="6.2" height="6.2" rx="1.4" fill="#f4efe6"/>
+  <rect x="12.9" y="5.9" width="6.2" height="6.2" rx="1.4" fill="#f4efe6"/>
+  <rect x="19.9" y="5.9" width="6.2" height="6.2" rx="1.4" fill="#f4efe6"/>
+  <rect x="5.9" y="12.9" width="6.2" height="6.2" rx="1.4" fill="#4f8a5b"/>
+  <rect x="12.9" y="12.9" width="6.2" height="6.2" rx="1.4" fill="#4f8a5b"/>
+  <rect x="19.9" y="12.9" width="6.2" height="6.2" rx="1.4" fill="#4f8a5b"/>
+  <rect x="5.9" y="19.9" width="6.2" height="6.2" rx="1.4" fill="#f4efe6"/>
+  <rect x="12.9" y="19.9" width="6.2" height="6.2" rx="1.4" fill="#f4efe6"/>
+</svg>
