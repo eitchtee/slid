@@ -6,6 +6,17 @@ Slide lettered tiles into the gap until the day's word reads left to right in a
 row or top to bottom in a column. Your score is the number of moves. Everyone
 gets the same puzzle each day, and every past day stays playable.
 
+## How to play
+
+1. Tap a tile next to the empty space to slide it in, or swipe it. On a keyboard, use the
+   arrow keys or WASD.
+2. Swipe a tile further along the empty space's row or column and every tile between them
+   moves along with it.
+3. Spell the day's word left to right in a row, or top to bottom in a column. A 3-letter
+   word only counts when the empty space completes its row or column.
+4. Every tile that moves counts as a move. Each day has a challenge, a move count it's known
+   to be solvable in: match it, or beat it.
+
 ## Features
 
 - **One daily puzzle** (#1 is 2026-09-01). Days rotate evenly through 3-, 4-, 5- and 6-letter
@@ -87,7 +98,7 @@ slid/
 scripts/
   make_icons.py regenerates the icons (uv run --with pillow python scripts/make_icons.py)
   solve.py      solves a board, or every daily board in a range (see its docstring)
-  build_words.py  builds slid/words.py from the word sources
+  build_words.py builds slid/words.py from the word sources
 tests/
 ```
 
@@ -107,6 +118,8 @@ added later go out before any repeat.
 To add a language, add it to the build script (plain A–Z tiles, real spelling kept), its
 strings to `STRINGS` and an entry to `LANGS` in `slid/i18n.py`. Its puzzles start from
 launch day, like every language.
+
+## Maintaining
 
 The win rule lives in two places: `word_cells()` in `slid/puzzle.py` (used to
 generate boards) and `check()` in `slid/static/app.js` (used while playing). Keep
