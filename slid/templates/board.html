@@ -32,7 +32,6 @@
           aria-label="{{ t.challenge.replace('{n}', p.challenge | string) }}"> / <svg class="par-icon" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.5"/><circle cx="8" cy="8" r="3.5"/><circle cx="8" cy="8" r="1" class="bull"/></svg>{{ p.challenge }}</span>
         <span x-text="movesWord">{{ t.move_other }}</span>
       </span>
-      <span class="hint" x-show="!won"><span class="hint-keys">{{ t.controls_hint }}</span><span class="hint-touch">{{ t.touch_hint }}</span></span>
       <span class="solved-tag" x-show="won" x-cloak>{{ t.won }}</span>
     </div>
   </div>

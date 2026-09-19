@@ -2,7 +2,7 @@
 // Pages and boards: network first, falling back to cache (days you've opened work offline).
 // Our static files: served from cache while refreshing in the background.
 // CDN files are pinned to exact versions, so they're cached once and reused.
-const CACHE = "slid-v7";
+const CACHE = "slid-v8";
 
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (event) => {

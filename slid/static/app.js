@@ -82,8 +82,6 @@ const isMobileOS = () =>
   navigator.userAgentData?.mobile ||
   /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
   (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1); // iPadOS identifies as a Mac
-// Lets CSS pick the swipe hint over the keyboard one (see .hint-touch in style.css).
-document.documentElement.classList.toggle("mobile", Boolean(isMobileOS()));
 
 // Days in a row solved on the day itself, in this language: solving a past game later doesn't
 // count. While today is still unsolved the streak runs up to yesterday, so it isn't lost yet.

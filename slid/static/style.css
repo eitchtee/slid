@@ -148,11 +148,6 @@ body {
 .challenge-result { font-size: 14px; color: var(--muted); }
 .challenge-result.met { color: var(--ok); font-weight: 600; }
 .solved-tag { color: var(--ok); font-weight: 700; }
-/* Phones and tablets get the swipe hint, desktops the keyboard one. app.js sets .mobile by
-   operating system: stylus phones report a mouse-like pointer, so a media query misses them. */
-.hint-touch { display: none; }
-.mobile .hint-keys { display: none; }
-.mobile .hint-touch { display: inline; }
 
 .target { display: flex; justify-content: center; gap: 6px; margin: 4px 0; }
 .target span {
