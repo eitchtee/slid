@@ -147,11 +147,18 @@
       <div class="days">
         <template x-for="d in days" :key="d.key">
           <button class="day" :class="d.cls" :disabled="!d.iso || d.disabled" @click="open(d.iso)"
-            :aria-label="d.label" :aria-current="d.iso === current ? 'date' : null"
-            data-cuelume-press x-text="d.day"></button>
+            :aria-label="d.label" :aria-current="d.iso === current ? 'date' : null" data-cuelume-press>
+            <span x-text="d.day"></span>
+            <span class="badge" x-show="d.tier" :class="'tier-' + d.tier">{% include "_medal.svg" %}</span>
+          </button>
         </template>
       </div>
       <p class="legend"><i class="won"></i>{{ t.won }} <i class="playing"></i>{{ t.playing }}</p>
+      <p class="legend medals">
+        {% for tier in ("trophy", "gold", "silver", "bronze") %}
+        <span class="tier-{{ tier }}">{% include "_medal.svg" %}{{ t["tier_" ~ tier] }}</span>
+        {% endfor %}
+      </p>
     </section>
   </main>
 </body>

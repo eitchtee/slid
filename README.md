@@ -31,14 +31,19 @@ gets the same puzzle each day, and every past day stays playable.
   common words) and daily puzzle. Portuguese words keep their accents on screen (PÃO) while
   the tiles use plain letters (PAO). Picked from the browser's language until the player
   chooses one.
-- **A daily challenge:** a move count we know the day can be solved in, found by a fast solver
-  (`slid/solver.py`) when the day is generated. Usually within a move or two of the optimum, so
-  it can be matched and sometimes beaten.
+- **A daily challenge and medals:** the challenge is a move count we know the day can be solved
+  in: the route a fast solver (`slid/solver.py`) finds when the day is generated, usually within
+  a move or two of the optimum, plus 15% slack (`CHALLENGE_SLACK` in `slid/store.py`). Solving at
+  or under it earns 🏆; up to 2× it (at least +8 moves) 🥇; up to 3× (at least +16) 🥈; any
+  other solve 🥉. The board shows the medal a game is on track
+  for, and the calendar shows each solved day's medal. The limits live in `TIERS` in
+  `slid/static/app.js`.
 - **Past games** in a calendar at `/calendar`, and every game has its own short URL: `/17` is
   game #17 (dated URLs like `/2026-09-17` still work).
-- **A share text worth sharing**, spoiler-free: moves over the challenge (`Slid #19 🏆 15/16`), a
-  heatmap of how often you moved the tile in each spot (the word's final spot in 🟩, never its
-  letters), your streak, and a short link: the home page for today's game, `/19` for a past one.
+- **A share text worth sharing**, spoiler-free: the medal and moves over the challenge
+  (`Slid #19 🥇 18/16`), a heatmap of how often you moved the tile in each spot (the word's final
+  spot in 🟩, never its letters), your streak, "Can you do better?", and a short link: the home
+  page for today's game, `/19` for a past one.
 - **Streaks** of days solved on the day itself, shown in the top bar. Catching up on past games
   later doesn't count.
 - **No accounts.** Progress lives in the browser's `localStorage`. The server only

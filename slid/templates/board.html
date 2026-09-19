@@ -24,27 +24,28 @@
     </div>
 
     <div class="puzzle-bar">
-      <!-- Moves over the challenge, like the share headline: "12 / 16 moves". The challenge part
-           fades once moves pass it, and turns green when the word is solved within it. -->
-      <span class="moves">
-        <b x-text="moves">0</b><span class="of" :class="{ missed: moves > challenge, met: won && moves <= challenge }"
-          title="{{ t.challenge_hint.replace('{n}', p.challenge | string) }}"
-          aria-label="{{ t.challenge.replace('{n}', p.challenge | string) }}"> / <svg class="par-icon" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.5"/><circle cx="8" cy="8" r="3.5"/><circle cx="8" cy="8" r="1" class="bull"/></svg>{{ p.challenge }}</span>
-        <span x-text="movesWord">{{ t.move_other }}</span>
+      <!-- The medal this game is on track for, then moves over what it takes to keep it:
+           "🏆 12 / 16 moves" (16 is the challenge), then "🥇 19 / 23 moves" once past it, and so on
+           down to "🥉 31 moves", which has no limit. -->
+      <span class="moves" :class="['tier-' + tier.id, { bump }]" :title="tierHint">
+        {% include "_medal.svg" %}
+        <span><b x-text="moves">0</b><span class="of" x-show="tierLimit !== null"> / <span x-text="tierLimit">{{ p.challenge }}</span></span>
+        <span x-text="movesWord">{{ t.move_other }}</span></span>
       </span>
-      <span class="solved-tag" x-show="won" x-cloak>{{ t.won }}</span>
+      <span class="tier-name" x-show="won" x-cloak x-text="tierName"></span>
     </div>
   </div>
 
   <dialog class="modal" x-ref="modal" @click.self="$el.close()">
     <div class="modal-body" tabindex="-1" autofocus>
+      <div class="medal-big" :class="'tier-' + tier.id">{% include "_medal.svg" %}</div>
       <h2>{{ t.solved_title }}</h2>
       <p class="sub">Slid #{{ cfg.number }} · <span x-text="shortDate"></span></p>
       <div class="preview" aria-label="{{ p.shown }}">
         {%- for letter in p.shown %}<i style="--k: {{ loop.index0 }}">{{ letter }}</i>{% endfor -%}
       </div>
       <p class="score"><b x-text="moves"></b> <span x-text="movesWord"></span></p>
-      <p class="challenge-result" :class="{ met: moves <= challenge }" x-text="challengeResult"></p>
+      <p class="challenge-result" :class="{ met: tier.id === 'trophy' }" x-text="challengeResult"></p>
       <p class="streak-line" x-show="isToday && $store.streak.count > 0" :class="{ lit: $store.streak.today }">
         {% include "_flame.svg" %}<span x-text="streakTitle()"></span>
       </p>

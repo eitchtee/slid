@@ -26,6 +26,10 @@ from .puzzle import LAUNCH, Puzzle, daily
 from .solver import quick
 from .words import WORDS
 
+# The challenge gives this much slack over the route solver.quick() finds, in percent, so it's a
+# target good players can reach rather than a near-optimal one.
+CHALLENGE_SLACK = 15
+
 # Docker sets SLID_DB to a path on a volume; locally it lives in ./data (gitignored).
 DB_PATH = Path(os.environ.get("SLID_DB", Path(__file__).parent.parent / "data" / "slid.db"))
 
@@ -38,7 +42,7 @@ CREATE TABLE IF NOT EXISTS puzzles (
     cols       INTEGER NOT NULL,
     start      TEXT NOT NULL,     -- rows*cols characters, row by row, "." is the gap
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    challenge  INTEGER,           -- moves in a known route (solver.quick); NULL only for days stored before it existed
+    challenge  INTEGER,           -- a known route's moves (solver.quick) + CHALLENGE_SLACK%; NULL only for days stored before it existed
     display    TEXT,              -- real spelling when it differs from word (PÃO for PAO)
     PRIMARY KEY (date, lang)
 )
@@ -77,6 +81,14 @@ def _migrate(conn: sqlite3.Connection) -> None:
     for column in ("challenge INTEGER", "display TEXT"):
         if column.split()[0] not in _columns(conn):
             conn.execute(f"ALTER TABLE puzzles ADD COLUMN {column}")
+    # Version 1: challenges were the bare route; give the ones already stored the slack too.
+    # user_version makes it run exactly once, which matters: a second run would add it again.
+    if conn.execute("PRAGMA user_version").fetchone()[0] < 1:
+        conn.execute(
+            "UPDATE puzzles SET challenge = (challenge * (100 + ?) + 99) / 100 WHERE challenge IS NOT NULL",
+            (CHALLENGE_SLACK,),
+        )
+        conn.execute("PRAGMA user_version = 1")
 
 
 def _connect() -> sqlite3.Connection:
@@ -89,8 +101,13 @@ def _connect() -> sqlite3.Connection:
     return conn
 
 
+def with_slack(moves: int) -> int:
+    """The challenge for a route of ``moves``: CHALLENGE_SLACK% more, rounded up (integer math)."""
+    return (moves * (100 + CHALLENGE_SLACK) + 99) // 100
+
+
 def _challenge(p: Puzzle) -> int:
-    return len(quick(p.start, p.word, p.rows, p.cols))
+    return with_slack(len(quick(p.start, p.word, p.rows, p.cols)))
 
 
 def _read(conn: sqlite3.Connection, key: tuple[str, str]) -> Puzzle | None:

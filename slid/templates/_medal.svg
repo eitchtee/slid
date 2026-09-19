@@ -1,0 +1,11 @@
+<svg class="medal" viewBox="0 0 24 24" aria-hidden="true"><!-- The wrapper's tier-* class picks the look (see .medal in style.css). -->
+  <g class="cup"><!-- Lucide "trophy" (ISC) -->
+    <path class="cup-body" d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>
+    <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/>
+  </g>
+  <g class="disc">
+    <path class="ribbon" d="M6.5 1.5h4.2l2.4 7.2H8.9zM17.5 1.5h-4.2l-2.4 7.2h4.2z"/>
+    <circle cx="12" cy="15.2" r="7.2"/>
+    <text x="12" y="18.6" class="r1">1</text><text x="12" y="18.6" class="r2">2</text><text x="12" y="18.6" class="r3">3</text>
+  </g>
+</svg>

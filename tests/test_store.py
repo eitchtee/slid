@@ -21,7 +21,8 @@ def test_new_days_are_stored_with_a_challenge():
     day = date(2026, 9, 18)
     p = store.puzzle_for(day, "en")
     assert p.start == puzzle.daily(day, "en", Counter()).start  # an empty history, like this fresh database
-    assert p.challenge == len(solver.quick(p.start, p.word, p.rows, p.cols))
+    route = len(solver.quick(p.start, p.word, p.rows, p.cols))
+    assert p.challenge == store.with_slack(route) > route  # a found route, plus slack
     assert rows() == [("2026-09-18", "en", p.challenge)]
 
 
@@ -33,7 +34,7 @@ def test_store_pins_the_first_generated_puzzle(monkeypatch):
     store.puzzle_for.cache_clear()
     assert store.puzzle_for(day, "en") == first
     # ...while a day (or language) that was never stored uses the new generator.
-    assert store.puzzle_for(day, "pt-BR") == puzzle.Puzzle("CAT", 4, 4, NEAR.start, challenge=1)
+    assert store.puzzle_for(day, "pt-BR") == puzzle.Puzzle("CAT", 4, 4, NEAR.start, challenge=store.with_slack(1))
 
 
 def test_ensure_through_stores_every_day_since_launch(monkeypatch):
@@ -42,7 +43,7 @@ def test_ensure_through_stores_every_day_since_launch(monkeypatch):
     assert [(d, lang) for d, lang, _ in rows()] == [
         (f"2026-09-0{n}", lang) for n in (1, 2, 3) for lang in ("en", "pt-BR")
     ]
-    assert all(challenge == 1 for *_, challenge in rows())
+    assert all(challenge == store.with_slack(1) for *_, challenge in rows())
     # Running again only adds what's missing.
     assert store.ensure_through(date(2026, 9, 3), ("en", "pt-BR")) == 0
     assert store.ensure_through(date(2026, 9, 4), ("en", "pt-BR")) == 2
@@ -72,7 +73,7 @@ def test_ensure_through_fills_missing_challenges(monkeypatch):
         conn.execute("UPDATE puzzles SET challenge = NULL")
     conn.close()
     assert store.ensure_through(date(2026, 9, 1), ("en",)) == 1
-    assert rows() == [("2026-09-01", "en", 1)]
+    assert rows() == [("2026-09-01", "en", store.with_slack(1))]
 
 
 def test_pregeneration_runs_an_hour_before_the_first_time_zone_reaches_tomorrow():
@@ -93,3 +94,26 @@ def test_pregenerate_stores_through_tomorrow_utc(monkeypatch):
     main.pregenerate(dt.datetime(2026, 9, 2, 9, 0, tzinfo=dt.UTC))
     assert {d for d, _, _ in rows()} == {"2026-09-01", "2026-09-02", "2026-09-03"}
     assert {lang for _, lang, _ in rows()} == {"en", "pt-BR"}
+
+
+def test_with_slack_rounds_up():
+    assert [store.with_slack(n) for n in (0, 1, 8, 13, 20, 26)] == [0, 2, 10, 15, 23, 30]
+
+
+def test_stored_challenges_get_the_slack_exactly_once():
+    # A database from before the slack: its stored challenges are bare routes.
+    conn = sqlite3.connect(store.DB_PATH)
+    with conn:
+        conn.execute(store.SCHEMA)
+        conn.execute(
+            "INSERT INTO puzzles (date, lang, word, rows, cols, start, challenge) VALUES ('2026-09-02', 'en', 'CAT', 4, 4, ?, 20)",
+            (NEAR.start,),
+        )
+    conn.close()
+    assert store.puzzle_for(date(2026, 9, 2), "en").challenge == 23
+    # Reconnecting (every request does) must not add it again.
+    store.puzzle_for.cache_clear()
+    assert store.puzzle_for(date(2026, 9, 2), "en").challenge == 23
+    store.ensure_through(date(2026, 9, 1), ("en",))
+    assert dict((d, c) for d, _, c in rows())["2026-09-02"] == 23
+

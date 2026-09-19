@@ -11,6 +11,9 @@
   --accent: #d2553c;
   --ok: #4f8a5b;
   --ok-edge: #3a6a45;
+  --gold: #d9a21b;
+  --silver: #a3acb6;
+  --bronze: #c27a45;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
@@ -27,6 +30,9 @@
     --accent: #e0694f;
     --ok: #5f9d6c;
     --ok-edge: #2f5838;
+    --gold: #e0ad2e;
+    --silver: #b3bcc6;
+    --bronze: #cf8a55;
     color-scheme: dark;
   }
 }
@@ -139,15 +145,33 @@ body {
 .puzzle-date { margin: 0; font-size: 15px; font-weight: 600; color: var(--ink); }
 .puzzle-date b { margin-left: 4px; color: var(--muted); font-weight: 600; }
 .moves b { color: var(--ink); font-size: 18px; }
-/* "12 / 16 moves": the challenge sits under the count, like a score out of par. */
-.moves .of { color: var(--ink); font-weight: 600; transition: color 200ms ease, opacity 200ms ease; }
-.moves .of.missed { color: var(--muted); opacity: 0.6; text-decoration: line-through; }
-.moves .of.met { color: var(--ok); }
-.par-icon { width: 13px; height: 13px; margin: 0 2px 0 1px; vertical-align: -1px; fill: none; stroke: currentColor; stroke-width: 1.6; }
-.par-icon .bull { fill: currentColor; stroke: none; }
+/* "🥇 19 / 23 moves": the medal on track, then moves over the limit that keeps it. */
+.moves { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); }
+.moves .medal { width: 22px; height: 22px; color: var(--ink); }
+.moves .of { color: var(--ink); font-weight: 600; }
+.moves.bump .medal { animation: pop 420ms cubic-bezier(0.2, 0.9, 0.3, 1.2); }
+.tier-name { color: var(--ink); font-weight: 700; }
 .challenge-result { font-size: 14px; color: var(--muted); }
 .challenge-result.met { color: var(--ok); font-weight: 600; }
-.solved-tag { color: var(--ok); font-weight: 700; }
+
+/* Medals. One SVG holds every look; the wrapper's tier-* class shows the trophy cup or a
+   numbered disc (1, 2, 3), so the tier never depends on color alone. */
+.medal { width: 20px; height: 20px; flex: none; overflow: visible; }
+.medal .cup, .medal .disc, .medal text { display: none; }
+.tier-trophy .medal .cup,
+.tier-gold .medal .disc, .tier-silver .medal .disc, .tier-bronze .medal .disc { display: inline; }
+.tier-gold .medal .r1, .tier-silver .medal .r2, .tier-bronze .medal .r3 { display: inline; }
+.medal .cup path { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.medal .cup .cup-body { fill: var(--gold); }
+.medal .ribbon { fill: var(--accent); }
+.medal circle { stroke: color-mix(in srgb, #000 22%, transparent); stroke-width: 1; }
+.tier-gold .medal circle { fill: var(--gold); }
+.tier-silver .medal circle { fill: var(--silver); }
+.tier-bronze .medal circle { fill: var(--bronze); }
+.medal text { font: 800 9.5px/1 ui-rounded, "SF Pro Rounded", system-ui, sans-serif; fill: #2a2622; text-anchor: middle; }
+
+.medal-big .medal { width: 56px; height: 56px; }
+.medal-big { color: var(--ink); animation: pop 420ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
 
 .target { display: flex; justify-content: center; gap: 6px; margin: 4px 0; }
 .target span {
@@ -432,6 +456,24 @@ kbd {
 .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: -6px; vertical-align: -1px; }
 .legend .won { background: var(--ok); }
 .legend .playing { width: 4px; height: 4px; border-radius: 50%; background: var(--muted); }
+/* A solved day's medal sits on its top-right corner, on a ring of the page surface. */
+.day .badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  display: grid;
+  place-items: center;
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--line);
+  color: var(--ink);
+}
+.day .badge .medal { width: 14px; height: 14px; }
+.legend.medals { margin-top: 6px; gap: 6px 14px; }
+.legend.medals span { display: inline-flex; align-items: center; gap: 4px; color: var(--ink); }
+.legend.medals .medal { width: 16px; height: 16px; }
 
 #debug-reset {
   position: fixed;

@@ -109,6 +109,19 @@ function streakTitle() {
 // Share grid: how often you moved the tile in each spot, like a heatmap of where you worked.
 const HEAT = ["⬜", "🟨", "🟨", "🟧", "🟧", "🟧"]; // by moves out of a spot; 6 or more is 🟥
 
+// Medals, from the day's challenge (a move count known to be reachable): a trophy at or under
+// it, gold and silver within a margin over it, bronze for any other solve. Each margin is a share
+// of the challenge with a floor in moves, so short puzzles still get room. Sized from real play:
+// a player's first 14 solves came to about 2.3x the challenge, and these limits make that a spread
+// of gold on good days, silver on normal ones and bronze on rough ones.
+const TIERS = [
+  { id: "trophy", emoji: "🏆", limit: (c) => c },
+  { id: "gold", emoji: "🥇", limit: (c) => Math.max(c * 2, c + 8) },
+  { id: "silver", emoji: "🥈", limit: (c) => Math.max(c * 3, c + 16) },
+  { id: "bronze", emoji: "🥉", limit: () => Infinity },
+];
+const tierFor = (moves, challenge) => TIERS.find((tier) => moves <= tier.limit(challenge));
+
 // Cuelume loads as an ES module and sets window.cuelume; until then this is a no-op.
 const sfx = (name, volume = 1) => window.cuelume?.play(name, { volume });
 
@@ -146,6 +159,7 @@ document.addEventListener("alpine:init", () => {
     ready: false,
     copied: false,
     now: Date.now(),
+    bump: false, // briefly true when a move drops the game to a lower medal
     touches: null, // touches[cell] = tiles moved out of that spot; null for games saved before it was tracked
     solvedOn: null, // the local date the word was solved, for streaks
 
@@ -160,6 +174,11 @@ document.addEventListener("alpine:init", () => {
       const tracked = valid && Array.isArray(saved.touches) && saved.touches.length === this.size;
       this.touches = tracked ? saved.touches : this.moves === 0 ? Array(this.size).fill(0) : null;
       this.solvedOn = (valid && saved.solvedOn) || null;
+      // The calendar needs the challenge to show a day's medal; older saves lack it.
+      if (valid && saved.challenge !== this.challenge) {
+        store(this.storeKey, { ...saved, challenge: this.challenge });
+        this.$dispatch("slid-update");
+      }
       this.check();
       this.clock = setInterval(() => (this.now = Date.now()), 1000);
       // Turn transitions on after the saved layout is painted, so reloading doesn't animate it.
@@ -168,6 +187,13 @@ document.addEventListener("alpine:init", () => {
       // one that ends during play pops it after the word has had a moment to light up.
       if (this.won) this.$nextTick(() => this.showResult());
       this.$watch("won", (won) => won && setTimeout(() => this.showResult(), 1100));
+      // Dropping to a lower medal gets a pop on the medal and a soft cue, so it doesn't go unnoticed.
+      this.$watch("tier.id", () => {
+        sfx("droplet", 0.5);
+        this.bump = false;
+        this.$nextTick(() => (this.bump = true));
+        setTimeout(() => (this.bump = false), 450);
+      });
       document.title = `Slid #${this.number}`;
       this.$dispatch("slid-open", this.date);
     },
@@ -187,6 +213,7 @@ document.addEventListener("alpine:init", () => {
         moves: this.moves,
         touches: this.touches,
         solvedOn: this.solvedOn,
+        challenge: this.challenge,
       });
       this.$dispatch("slid-update");
     },
@@ -198,10 +225,21 @@ document.addEventListener("alpine:init", () => {
     },
     get won() { return this.hits.length > 0 },
     get movesWord() { return movesWord(this.moves) },
+    // Solved: the medal earned. Still playing: the medal a solve right now would earn.
+    get tier() { return tierFor(this.moves, this.challenge) },
+    get tierName() { return t(`tier_${this.tier.id}`) },
+    // The most moves that still earn the current medal; null for bronze, which has no limit.
+    get tierLimit() {
+      const limit = this.tier.limit(this.challenge);
+      return limit === Infinity ? null : limit;
+    },
+    get tierHint() {
+      return this.tierLimit === null ? this.tierName : t("tier_keep", { tier: this.tierName, n: this.tierLimit });
+    },
     get challengeResult() {
-      const key = this.moves < this.challenge ? "challenge_beaten"
-        : this.moves === this.challenge ? "challenge_matched" : "challenge_missed";
-      return t(key, { n: this.challenge });
+      const n = this.challenge, over = this.moves - n;
+      if (this.tier.id === "trophy") return t(over < 0 ? "challenge_beaten" : "challenge_matched", { n });
+      return t(over === 1 ? "tier_over_one" : "tier_over_other", { tier: t(`tier_${this.tier.id}`), over, n });
     },
     get isToday() { return this.date === todayISO() },
     // dd/mm/yyyy, or whatever order and separator the browser's locale uses.
@@ -340,8 +378,7 @@ document.addEventListener("alpine:init", () => {
     // Spoiler-free: moves over the challenge, a heatmap of where you worked (the word's final
     // spot in green, never its letters), your streak, and a short link.
     get shareText() {
-      const badge = this.moves < this.challenge ? " 🏆" : this.moves === this.challenge ? " 🎯" : "";
-      const lines = [`Slid #${this.number}${badge} ${this.moves}/${this.challenge}`];
+      const lines = [`Slid #${this.number} ${this.tier.emoji} ${this.moves}/${this.challenge}`];
       if (this.touches) {
         for (let r = 0; r < this.rows; r++) {
           let row = "";
@@ -351,11 +388,13 @@ document.addEventListener("alpine:init", () => {
           }
           lines.push(row);
         }
+        lines.push(""); // a blank line sets the grid apart from the text below it
       }
       const { count } = Alpine.store("streak");
       if (this.isToday && count >= 2) lines.push(t("share_streak", { n: count }));
       // Today's game links to the home page, a past one to its number. No language in the link:
       // it opens game #N in the language of whoever follows it.
+      lines.push(t("share_prompt"));
       lines.push(`${location.origin}${this.isToday ? "/" : `/${this.number}`}`);
       return lines.join("\n");
     },
@@ -455,9 +494,9 @@ document.addEventListener("alpine:init", () => {
 
     refresh() { this.version++ },
 
-    status(iso) {
+    game(iso) {
       this.version;
-      return load(gameKey(iso))?.status ?? null;
+      return load(gameKey(iso));
     },
 
     get monthLabel() {
@@ -481,12 +520,17 @@ document.addEventListener("alpine:init", () => {
       const count = new Date(y, m + 1, 0).getDate();
       const days = Array.from({ length: count }, (_, k) => {
         const iso = toISO(new Date(y, m, k + 1));
-        const status = this.status(iso);
+        const game = this.game(iso);
+        const status = game?.status ?? null;
+        // Games saved before challenges were stored have no medal until they're opened again.
+        const tier = status === "won" && game.challenge ? tierFor(game.moves, game.challenge).id : null;
+        const medal = tier ? ` · ${t(`tier_${tier}`)}` : "";
         return {
+          tier,
           key: iso,
           iso,
           day: k + 1,
-          label: `${parseISO(iso).toLocaleDateString(LOCALE, { day: "numeric", month: "long" })}: ${t(status ?? "not_played")}`,
+          label: `${parseISO(iso).toLocaleDateString(LOCALE, { day: "numeric", month: "long" })}: ${t(status ?? "not_played")}${medal}`,
           disabled: iso < this.launch || iso > this.today,
           cls: { [status]: !!status, today: iso === this.today, current: iso === this.current },
         };
