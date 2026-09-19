@@ -1,0 +1,6 @@
+# Only pyproject.toml, uv.lock and slid/ are needed to build the image.
+*
+!pyproject.toml
+!uv.lock
+!slid/
+slid/**/__pycache__

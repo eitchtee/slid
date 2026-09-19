@@ -1,0 +1,28 @@
+services:
+  slid:
+    build: .
+    image: slid:latest
+    container_name: slid
+    ports:
+      - "8000:8000"
+    environment:
+      # Addresses allowed to send X-Forwarded-* headers. Set this to your reverse proxy's IP
+      # (or "*" if only the proxy can reach the container) when serving over HTTPS.
+      FORWARDED_ALLOW_IPS: "127.0.0.1"
+    volumes:
+      # Every day's puzzle, stored the first time it's served. Keep this volume across
+      # upgrades so past days stay the same puzzle. Player progress lives in their browsers.
+      - slid-data:/data
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 256m
+    pids_limit: 128
+
+volumes:
+  slid-data:
