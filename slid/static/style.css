@@ -75,7 +75,26 @@ body {
   font-weight: 800;
 }
 .logo span:last-child { background: var(--ok); color: #fff; translate: 0 3px; }
-.top-actions { display: flex; gap: 2px; }
+.top-actions, .top-left { display: flex; align-items: center; gap: 2px; }
+
+/* Streak: a flame and a count. Lit once today's word is solved, dim while it waits on today. */
+.flame { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; }
+.lit .flame { fill: currentColor; fill-opacity: 0.25; }
+.streak {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 30px;
+  padding: 0 10px 0 8px;
+  border-radius: 999px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  cursor: default;
+}
+.streak b { font-weight: 700; font-size: 15px; }
+.streak.lit { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.streak-line { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; color: var(--muted); }
+.streak-line.lit { color: var(--accent); font-weight: 600; }
 .icon-btn {
   display: grid;
   place-items: center;
@@ -120,8 +139,12 @@ body {
 .puzzle-date { margin: 0; font-size: 15px; font-weight: 600; color: var(--ink); }
 .puzzle-date b { margin-left: 4px; color: var(--muted); font-weight: 600; }
 .moves b { color: var(--ink); font-size: 18px; }
-.challenge { font-weight: 600; color: var(--ink); transition: color 200ms ease, opacity 200ms ease; }
-.challenge.missed { color: var(--muted); opacity: 0.6; text-decoration: line-through; }
+/* "12 / 16 moves": the challenge sits under the count, like a score out of par. */
+.moves .of { color: var(--ink); font-weight: 600; transition: color 200ms ease, opacity 200ms ease; }
+.moves .of.missed { color: var(--muted); opacity: 0.6; text-decoration: line-through; }
+.moves .of.met { color: var(--ok); }
+.par-icon { width: 13px; height: 13px; margin: 0 2px 0 1px; vertical-align: -1px; fill: none; stroke: currentColor; stroke-width: 1.6; }
+.par-icon .bull { fill: currentColor; stroke: none; }
 .challenge-result { font-size: 14px; color: var(--muted); }
 .challenge-result.met { color: var(--ok); font-weight: 600; }
 .solved-tag { color: var(--ok); font-weight: 700; }

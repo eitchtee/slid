@@ -45,10 +45,23 @@ def test_day_urls():
         assert client.get(bad).status_code == 404
 
 
+def test_game_number_urls():
+    assert client.get("/1").status_code == 200
+    assert client.get("/17").status_code == 200
+    # One URL per game, and only games that exist.
+    for bad in ["/0", "/017", "/99999", "/20260917", "/-3", "/1.5"]:
+        assert client.get(bad).status_code == 404
+    assert puzzle_date_of("17") == puzzle_date_of("2026-09-17")
+
+
+def puzzle_date_of(value: str):
+    return main.puzzle_date(value)
+
+
 def test_language_choice():
     c = TestClient(app)
     pt = c.get("/", headers={"Accept-Language": "pt-BR"})
-    assert '<html lang="pt-BR">' in pt.text and "Como jogar" in pt.text
+    assert '<html lang="pt-BR"' in pt.text and "Como jogar" in pt.text
     assert "Cookie" in pt.headers["vary"]
     # The board follows the language: Portuguese strings and the Portuguese word.
     board = c.get("/board", params={"date": "2026-09-03"}, headers={"Accept-Language": "pt-BR"})

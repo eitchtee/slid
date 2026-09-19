@@ -29,13 +29,18 @@ gets the same puzzle each day, and every past day stays playable.
   solved in fewer than 8 moves.
 - **English and Brazilian Portuguese**, each with its own word list (about 2,100 and 1,200
   common words) and daily puzzle. Portuguese words keep their accents on screen (PÃO) while
-  the tiles use plain letters (PAO).
-  Picked from the browser's language until the player chooses one; shared links carry
-  `?lang=` so they open the same word.
+  the tiles use plain letters (PAO). Picked from the browser's language until the player
+  chooses one.
 - **A daily challenge:** a move count we know the day can be solved in, found by a fast solver
   (`slid/solver.py`) when the day is generated. Usually within a move or two of the optimum, so
   it can be matched and sometimes beaten.
-- **Past games** in a calendar at `/calendar`, and every day has its own URL (`/2026-09-17`).
+- **Past games** in a calendar at `/calendar`, and every game has its own short URL: `/17` is
+  game #17 (dated URLs like `/2026-09-17` still work).
+- **A share text worth sharing**, spoiler-free: moves over the challenge (`Slid #19 🏆 15/16`), a
+  heatmap of how often you moved the tile in each spot (the word's final spot in 🟩, never its
+  letters), your streak, and a short link: the home page for today's game, `/19` for a past one.
+- **Streaks** of days solved on the day itself, shown in the top bar. Catching up on past games
+  later doesn't count.
 - **No accounts.** Progress lives in the browser's `localStorage`. The server only
   keeps each day's puzzle (and its challenge) in SQLite.
 - **Days are stored ahead of time.** On startup and then daily at 09:00 UTC, the server stores

@@ -4,9 +4,6 @@
   <div class="puzzle">
     <div class="puzzle-bar">
       <h2 class="puzzle-date"><span x-text="shortDate"></span> <b>#{{ cfg.number }}</b></h2>
-      <!-- Turns muted once the move count has gone past it. -->
-      <span class="challenge" :class="{ missed: moves > challenge }"
-        title="{{ t.challenge_hint.replace('{n}', p.challenge | string) }}">{{ t.challenge.replace("{n}", p.challenge | string) }}</span>
     </div>
 
     <div class="target" aria-label="{{ t.target_word.replace('{word}', p.shown) }}">
@@ -27,7 +24,14 @@
     </div>
 
     <div class="puzzle-bar">
-      <span class="moves"><b x-text="moves">0</b> <span x-text="movesWord">{{ t.move_other }}</span></span>
+      <!-- Moves over the challenge, like the share headline: "12 / 16 moves". The challenge part
+           fades once moves pass it, and turns green when the word is solved within it. -->
+      <span class="moves">
+        <b x-text="moves">0</b><span class="of" :class="{ missed: moves > challenge, met: won && moves <= challenge }"
+          title="{{ t.challenge_hint.replace('{n}', p.challenge | string) }}"
+          aria-label="{{ t.challenge.replace('{n}', p.challenge | string) }}"> / <svg class="par-icon" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.5"/><circle cx="8" cy="8" r="3.5"/><circle cx="8" cy="8" r="1" class="bull"/></svg>{{ p.challenge }}</span>
+        <span x-text="movesWord">{{ t.move_other }}</span>
+      </span>
       <span class="hint" x-show="!won"><span class="hint-keys">{{ t.controls_hint }}</span><span class="hint-touch">{{ t.touch_hint }}</span></span>
       <span class="solved-tag" x-show="won" x-cloak>{{ t.won }}</span>
     </div>
@@ -42,6 +46,9 @@
       </div>
       <p class="score"><b x-text="moves"></b> <span x-text="movesWord"></span></p>
       <p class="challenge-result" :class="{ met: moves <= challenge }" x-text="challengeResult"></p>
+      <p class="streak-line" x-show="isToday && $store.streak.count > 0" :class="{ lit: $store.streak.today }">
+        {% include "_flame.svg" %}<span x-text="streakTitle()"></span>
+      </p>
       <p class="next" x-show="isToday">{{ t.next_word }} <strong x-text="countdown"></strong></p>
       <div class="actions">
         <button class="primary" @click="share()" x-text="copied ? {{ t.copied|js }} : {{ t.share|js }}"></button>

@@ -29,11 +29,22 @@ function setLanguage(lang) {
   location.replace(location.pathname);
 }
 
-// Every URL gets the same page shell and the view is picked here:
-// "/" is today's puzzle, "/2026-09-17" is that day's, "/calendar" is the past-games page.
+// Every URL gets the same page shell and the view is picked here: "/" is today's puzzle,
+// "/19" is game #19, "/calendar" is the past-games page. Dated URLs ("/2026-09-19") still work
+// for old links. Game numbers count days from launch, which is #1.
 const CALENDAR = "/calendar";
-const pathDate = () => location.pathname.match(/^\/(\d{4}-\d{2}-\d{2})$/)?.[1] ?? todayISO();
-const dayURL = (iso) => (iso === todayISO() ? "/" : `/${iso}`);
+const LAUNCH = document.documentElement.dataset.launch;
+const DAY_MS = 864e5;
+// Rounded, so a daylight-saving change between the two dates can't shift the count.
+const numberOf = (iso) => Math.round((parseISO(iso) - parseISO(LAUNCH)) / DAY_MS) + 1;
+const dateOf = (number) => { const d = parseISO(LAUNCH); d.setDate(d.getDate() + number - 1); return toISO(d) };
+function pathDate() {
+  const path = location.pathname.slice(1);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(path)) return path;
+  if (/^[1-9]\d*$/.test(path)) return dateOf(Number(path));
+  return todayISO();
+}
+const dayURL = (iso) => (iso === todayISO() ? "/" : `/${numberOf(iso)}`);
 const currentView = () => (location.pathname === CALENDAR ? "calendar" : "board");
 
 function render() {
@@ -74,6 +85,32 @@ const isMobileOS = () =>
 // Lets CSS pick the swipe hint over the keyboard one (see .hint-touch in style.css).
 document.documentElement.classList.toggle("mobile", Boolean(isMobileOS()));
 
+// Days in a row solved on the day itself, in this language: solving a past game later doesn't
+// count. While today is still unsolved the streak runs up to yesterday, so it isn't lost yet.
+function streak() {
+  const onTime = (iso) => {
+    const game = load(gameKey(iso));
+    return game?.status === "won" && (!game.solvedOn || game.solvedOn === iso); // older saves have no date
+  };
+  const day = parseISO(todayISO());
+  const today = onTime(toISO(day));
+  if (!today) day.setDate(day.getDate() - 1);
+  let count = 0;
+  while (onTime(toISO(day))) {
+    count++;
+    day.setDate(day.getDate() - 1);
+  }
+  return { count, today };
+}
+function streakTitle() {
+  const { count, today } = Alpine.store("streak");
+  const label = t(count === 1 ? "streak_one" : "streak_other", { n: count });
+  return today ? label : `${label}. ${t("streak_pending")}`;
+}
+
+// Share grid: how often you moved the tile in each spot, like a heatmap of where you worked.
+const HEAT = ["⬜", "🟨", "🟨", "🟧", "🟧", "🟧"]; // by moves out of a spot; 6 or more is 🟥
+
 // Cuelume loads as an ES module and sets window.cuelume; until then this is a no-op.
 const sfx = (name, volume = 1) => window.cuelume?.play(name, { volume });
 
@@ -94,6 +131,8 @@ const SWIPE_MIN = 24;
 
 document.addEventListener("alpine:init", () => {
   Alpine.store("view", currentView());
+  Alpine.store("streak", streak());
+  addEventListener("slid-update", () => Alpine.store("streak", streak()));
 
   // Tiles keep an id (their order in the starting board) and move between cells, so the
   // DOM node for a letter stays the same and CSS can animate it to its new spot.
@@ -109,6 +148,8 @@ document.addEventListener("alpine:init", () => {
     ready: false,
     copied: false,
     now: Date.now(),
+    touches: null, // touches[cell] = tiles moved out of that spot; null for games saved before it was tracked
+    solvedOn: null, // the local date the word was solved, for streaks
 
     init() {
       this.storeKey = gameKey(this.date);
@@ -118,6 +159,9 @@ document.addEventListener("alpine:init", () => {
       const valid = Array.isArray(saved?.pos) && saved.pos.length === startPos.length;
       this.pos = valid ? saved.pos : startPos;
       this.moves = valid ? saved.moves : 0;
+      const tracked = valid && Array.isArray(saved.touches) && saved.touches.length === this.size;
+      this.touches = tracked ? saved.touches : this.moves === 0 ? Array(this.size).fill(0) : null;
+      this.solvedOn = (valid && saved.solvedOn) || null;
       this.check();
       this.clock = setInterval(() => (this.now = Date.now()), 1000);
       // Turn transitions on after the saved layout is painted, so reloading doesn't animate it.
@@ -138,7 +182,14 @@ document.addEventListener("alpine:init", () => {
     },
 
     save() {
-      store(this.storeKey, { status: this.won ? "won" : "playing", pos: this.pos, moves: this.moves });
+      if (this.won && !this.solvedOn) this.solvedOn = todayISO();
+      store(this.storeKey, {
+        status: this.won ? "won" : "playing",
+        pos: this.pos,
+        moves: this.moves,
+        touches: this.touches,
+        solvedOn: this.solvedOn,
+      });
       this.$dispatch("slid-update");
     },
 
@@ -222,6 +273,7 @@ document.addEventListener("alpine:init", () => {
       // The tile nearest the gap goes first, so each one steps into the space just vacated.
       const ids = line.map((at) => this.pos.indexOf(at));
       for (const id of ids.reverse()) this.pos[id] += dr * this.cols + dc;
+      if (this.touches) for (const at of line) this.touches[at]++;
       this.moves += line.length;
       this.check();
       this.save();
@@ -287,11 +339,31 @@ document.addEventListener("alpine:init", () => {
       return t("tile_label", { letter: this.letters[id], row: Math.floor(cell / this.cols) + 1, col: (cell % this.cols) + 1 });
     },
 
+    // Spoiler-free: moves over the challenge, a heatmap of where you worked (the word's final
+    // spot in green, never its letters), your streak, and a short link.
+    get shareText() {
+      const badge = this.moves < this.challenge ? " 🏆" : this.moves === this.challenge ? " 🎯" : "";
+      const lines = [`Slid #${this.number}${badge} ${this.moves}/${this.challenge}`];
+      if (this.touches) {
+        for (let r = 0; r < this.rows; r++) {
+          let row = "";
+          for (let c = 0; c < this.cols; c++) {
+            const cell = r * this.cols + c;
+            row += this.hits.includes(cell) ? "🟩" : cell === this.gap ? "⬛" : HEAT[this.touches[cell]] ?? "🟥";
+          }
+          lines.push(row);
+        }
+      }
+      const { count } = Alpine.store("streak");
+      if (this.isToday && count >= 2) lines.push(t("share_streak", { n: count }));
+      // Today's game links to the home page, a past one to its number. No language in the link:
+      // it opens game #N in the language of whoever follows it.
+      lines.push(`${location.origin}${this.isToday ? "/" : `/${this.number}`}`);
+      return lines.join("\n");
+    },
+
     async share() {
-      // The link carries the language, so it opens the same word for whoever follows it.
-      const url = `${location.origin}/${this.date}?lang=${encodeURIComponent(this.lang)}`;
-      const target = this.moves <= this.challenge ? " 🎯" : "";
-      const text = `Slid #${this.number} · ${this.moves} ${this.movesWord}${target}\n${"🟩".repeat(this.word.length)}\n${url}`;
+      const text = this.shareText;
       // Native share sheet on phones and tablets, clipboard on desktop
       // (desktop browsers also have navigator.share, but it opens the OS share dialog).
       if (isMobileOS() && navigator.share) {

@@ -92,21 +92,27 @@ def render(request: Request, name: str, context: dict):
 
 
 def puzzle_date(value: str) -> dt.date:
-    """Parse a YYYY-MM-DD day, 404ing on anything that has no puzzle."""
-    try:
-        day = dt.date.fromisoformat(value)
-    except ValueError:
-        raise HTTPException(404, "Not a day") from None
-    if value != day.isoformat():  # fromisoformat also takes "20260917"; keep one URL per day
-        raise HTTPException(404, "Not a day")
+    """Parse a game number (19, as in /19) or a YYYY-MM-DD day, 404ing on anything without a puzzle."""
     # The client picks "today" in its own timezone; allow one day ahead for zones east of UTC.
-    if not LAUNCH <= day <= dt.datetime.now(dt.UTC).date() + dt.timedelta(days=1):
+    latest = dt.datetime.now(dt.UTC).date() + dt.timedelta(days=1)
+    if value.isdecimal() and value == str(int(value)):  # one URL per game: no "019"
+        if not 1 <= int(value) <= number(latest):  # checked first: a huge number overflows a date
+            raise HTTPException(404, "No such game")
+        day = LAUNCH + dt.timedelta(days=int(value) - 1)
+    else:
+        try:
+            day = dt.date.fromisoformat(value)
+        except ValueError:
+            raise HTTPException(404, "Not a day") from None
+        if value != day.isoformat():  # fromisoformat also takes "20260917"; keep one URL per day
+            raise HTTPException(404, "Not a day")
+    if not LAUNCH <= day <= latest:
         raise HTTPException(404, "No puzzle for that day")
     return day
 
 
 def page(request: Request):
-    # The client reads the day from the URL path and loads /board itself.
+    # The client reads the day from the URL path (/19 or /2026-09-19) and loads /board itself.
     return render(request, "index.html", {"launch": LAUNCH.isoformat()})
 
 

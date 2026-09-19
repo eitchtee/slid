@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="{{ lang }}">
+<html lang="{{ lang }}" data-launch="{{ launch }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -44,6 +44,7 @@
 </head>
 <body>
   <header class="top" x-data>
+    <div class="top-left">
     <a class="icon-btn" href="/calendar" @click.prevent="navigate('/calendar')" data-cuelume-press
       aria-label="{{ t.past_games }}" title="{{ t.past_games }}" :aria-current="$store.view === 'calendar' ? 'page' : null">
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
@@ -51,6 +52,12 @@
         <rect x="7" y="13" width="3" height="3" rx=".6" fill="currentColor" stroke="none"/>
         <rect x="14" y="13" width="3" height="3" rx=".6" fill="currentColor" stroke="none"/></svg>
     </a>
+    <!-- Lit once today's word is solved; dim while the streak still waits on today. -->
+    <span class="streak" x-show="$store.streak.count > 0" x-cloak :class="{ lit: $store.streak.today }"
+      :title="streakTitle()" :aria-label="streakTitle()">
+      {% include "_flame.svg" %}<b x-text="$store.streak.count"></b>
+    </span>
+    </div>
     <h1 class="logo">
       <a href="/" @click.prevent="navigate('/')" aria-label="{{ t.today_link }}">
         <span aria-hidden="true">S</span><span aria-hidden="true">L</span><span aria-hidden="true">I</span><span aria-hidden="true">D</span>
