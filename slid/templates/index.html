@@ -13,11 +13,11 @@
   <meta name="theme-color" content="#1b1916" media="(prefers-color-scheme: dark)">
   <meta name="apple-mobile-web-app-title" content="Slid">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="{{ asset['style.css'] }}">
   <!-- Strings app.js builds at runtime (titles, share text, calendar labels). -->
   <script>window.I18N = {{ t | tojson }};</script>
   <script defer src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.10/dist/htmx.min.js"></script>
-  <script defer src="/static/app.js"></script>
+  <script defer src="{{ asset['app.js'] }}"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.17.3/dist/cdn.min.js"></script>
   <script type="module">
     import * as cuelume from "https://cdn.jsdelivr.net/npm/cuelume@0.2.2/+esm";

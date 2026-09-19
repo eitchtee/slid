@@ -5,7 +5,7 @@ from datetime import date
 
 from fastapi.testclient import TestClient
 
-from slid import i18n, puzzle, store
+from slid import i18n, main, puzzle, store
 from slid.main import app
 from slid.words import plain
 
@@ -68,6 +68,19 @@ def test_accept_language_parsing():
     assert i18n.from_accept_language("pt-PT,pt;q=0.9,en;q=0.8") == "pt-BR"
     assert i18n.from_accept_language("de, en;q=0.5, pt;q=0.4") == "en"
     assert i18n.from_accept_language("") == "en"
+
+
+def test_static_files_are_versioned_so_deploys_reach_players():
+    page = client.get("/").text
+    for name in ("app.js", "style.css"):
+        version = page.split(f"/static/{name}?v=")[1].split('"')[0]
+        assert version == main.VERSIONS[name]
+        fresh = client.get(f"/static/{name}", params={"v": version})
+        assert fresh.headers["cache-control"] == "public, max-age=31536000, immutable"
+        # A bare URL, or an old hash from a stale page, must be checked with the server every time.
+        assert client.get(f"/static/{name}").headers["cache-control"] == "no-cache"
+        assert client.get(f"/static/{name}", params={"v": "0000000000"}).headers["cache-control"] == "no-cache"
+    assert client.get("/static/icons/icon.svg").headers["cache-control"] == "no-cache"
 
 
 def test_pwa_files():

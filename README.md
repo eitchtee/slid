@@ -125,5 +125,7 @@ The win rule lives in two places: `word_cells()` in `slid/puzzle.py` (used to
 generate boards) and `check()` in `slid/static/app.js` (used while playing). Keep
 them in step.
 
-When deploying a change to the static files, bump `CACHE` in `slid/static/sw.js` so
-installed copies pick it up.
+`app.js` and `style.css` are linked with a hash of their contents (`/static/app.js?v=…`), so a
+deploy reaches players on their first load: CDNs, browsers and the service worker all see a new
+URL. Those URLs are cached for a year; every other static file is revalidated on each request.
+Bumping `CACHE` in `slid/static/sw.js` is only needed to clear old copies out of installed apps.

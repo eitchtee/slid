@@ -1,5 +1,6 @@
 import asyncio
 import datetime as dt
+import hashlib
 import json
 import logging
 from contextlib import asynccontextmanager
@@ -60,6 +61,26 @@ app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
 templates = Jinja2Templates(directory=HERE / "templates")
 # A string as a JS literal inside a double-quoted HTML attribute, e.g. :aria-label="on ? {{ t.mute|js }} : ...".
 templates.env.filters["js"] = lambda value: Markup(escape(json.dumps(value)))
+
+# app.js and style.css are linked as /static/<name>?v=<content hash>, so any change gets a new
+# URL and CDNs, browsers and the service worker fetch it fresh on the first load after a deploy,
+# keeping the page and its code in step. Hashed once at startup: the files only change with a deploy.
+VERSIONED = ("app.js", "style.css")
+VERSIONS = {name: hashlib.sha256((HERE / "static" / name).read_bytes()).hexdigest()[:10] for name in VERSIONED}
+templates.env.globals["asset"] = {name: f"/static/{name}?v={v}" for name, v in VERSIONS.items()}
+
+
+@app.middleware("http")
+async def static_cache_headers(request: Request, call_next):
+    response = await call_next(request)
+    path = request.url.path
+    if path.startswith("/static/") and response.status_code == 200:
+        # Only the current hash may be cached for good: a stale page asking for an old hash gets
+        # today's file, which must not be kept under that old URL.
+        current = VERSIONS.get(path.removeprefix("/static/"))
+        immutable = current is not None and request.query_params.get("v") == current
+        response.headers["Cache-Control"] = "public, max-age=31536000, immutable" if immutable else "no-cache"
+    return response
 
 
 def render(request: Request, name: str, context: dict):
