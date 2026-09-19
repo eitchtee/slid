@@ -66,8 +66,9 @@ def _columns(conn: sqlite3.Connection) -> set[str]:
     return {row[1] for row in conn.execute("PRAGMA table_info(puzzles)")}
 
 
-def _migrate(conn: sqlite3.Connection) -> None:
-    # Databases from before languages keyed puzzles by date alone; those were all English.
+def _v1_schema_and_slack(conn: sqlite3.Connection) -> None:
+    """The current schema, reached from any older file, with the challenge slack applied."""
+    # Files from before languages keyed puzzles by date alone; those were all English.
     if (columns := _columns(conn)) and "lang" not in columns:
         conn.execute("ALTER TABLE puzzles RENAME TO puzzles_pre_lang")
         conn.execute(SCHEMA)
@@ -81,24 +82,58 @@ def _migrate(conn: sqlite3.Connection) -> None:
     for column in ("challenge INTEGER", "display TEXT"):
         if column.split()[0] not in _columns(conn):
             conn.execute(f"ALTER TABLE puzzles ADD COLUMN {column}")
-    # Version 1: challenges were the bare route; give the ones already stored the slack too.
-    # user_version makes it run exactly once, which matters: a second run would add it again.
-    if conn.execute("PRAGMA user_version").fetchone()[0] < 1:
-        conn.execute(
-            "UPDATE puzzles SET challenge = (challenge * (100 + ?) + 99) / 100 WHERE challenge IS NOT NULL",
-            (CHALLENGE_SLACK,),
-        )
-        conn.execute("PRAGMA user_version = 1")
+    # Challenges used to be the bare route; stored ones get the slack too (none, on a new file).
+    conn.execute(
+        "UPDATE puzzles SET challenge = (challenge * (100 + ?) + 99) / 100 WHERE challenge IS NOT NULL",
+        (CHALLENGE_SLACK,),
+    )
+
+
+# The database's PRAGMA user_version counts the migrations applied to it: MIGRATIONS[n] takes a
+# file from version n to n + 1, once, in its own transaction. Only ever append: editing or
+# reordering an entry would skip it, or rerun it, on files that already have it.
+MIGRATIONS = [
+    _v1_schema_and_slack,
+]
+
+
+# Database files migrate() has brought up to date in this process.
+_migrated: set[Path] = set()
+
+
+def migrate() -> int:
+    """Brings the database file up to date and returns its version.
+
+    The server runs this at startup, so a database it can't open or write stops it there rather
+    than on a player's first request. Safe to run from several workers at once: each step re-reads
+    the version under the write lock before applying anything.
+    """
+    try:
+        DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+        conn = sqlite3.connect(DB_PATH, timeout=10, isolation_level=None)
+        try:
+            conn.execute("PRAGMA journal_mode=WAL")
+            while True:
+                with _writing(conn):
+                    version = conn.execute("PRAGMA user_version").fetchone()[0]
+                    if version >= len(MIGRATIONS):  # up to date, or written by a newer version of Slid
+                        _migrated.add(DB_PATH)
+                        return version
+                    MIGRATIONS[version](conn)
+                    conn.execute(f"PRAGMA user_version = {version + 1}")
+        finally:
+            conn.close()
+    except (sqlite3.Error, OSError) as e:
+        raise RuntimeError(f"Can't open or update the puzzle database at {DB_PATH}: {e}") from e
 
 
 def _connect() -> sqlite3.Connection:
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    # Scripts and tests use the store without starting the server, so migrate here too; it's a
+    # single version check once a file is known to be current.
+    if DB_PATH not in _migrated:
+        migrate()
     # Autocommit mode: transactions are opened explicitly with _writing().
-    conn = sqlite3.connect(DB_PATH, timeout=10, isolation_level=None)
-    conn.execute("PRAGMA journal_mode=WAL")
-    with _writing(conn):
-        _migrate(conn)
-    return conn
+    return sqlite3.connect(DB_PATH, timeout=10, isolation_level=None)
 
 
 def with_slack(moves: int) -> int:

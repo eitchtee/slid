@@ -117,3 +117,51 @@ def test_stored_challenges_get_the_slack_exactly_once():
     store.ensure_through(date(2026, 9, 1), ("en",))
     assert dict((d, c) for d, _, c in rows())["2026-09-02"] == 23
 
+
+def version() -> int:
+    conn = sqlite3.connect(store.DB_PATH)
+    try:
+        return conn.execute("PRAGMA user_version").fetchone()[0]
+    finally:
+        conn.close()
+
+
+def test_migrate_brings_a_new_file_up_to_date():
+    assert store.migrate() == len(store.MIGRATIONS) == version()
+    assert rows() == []  # the table exists and is empty
+
+
+def test_migrate_twice_changes_nothing():
+    conn = sqlite3.connect(store.DB_PATH)
+    with conn:
+        conn.execute(store.SCHEMA)
+        conn.execute(
+            "INSERT INTO puzzles (date, lang, word, rows, cols, start, challenge) VALUES ('2026-09-03', 'en', 'CAT', 4, 4, ?, 20)",
+            (NEAR.start,),
+        )
+    conn.close()
+    assert store.migrate() == 1 and rows() == [("2026-09-03", "en", 23)]
+    assert store.migrate() == 1 and rows() == [("2026-09-03", "en", 23)]
+
+
+def test_a_file_from_a_newer_slid_is_left_alone():
+    conn = sqlite3.connect(store.DB_PATH)
+    with conn:
+        conn.execute(store.SCHEMA)
+        conn.execute(
+            "INSERT INTO puzzles (date, lang, word, rows, cols, start, challenge) VALUES ('2026-09-03', 'en', 'CAT', 4, 4, ?, 20)",
+            (NEAR.start,),
+        )
+        conn.execute("PRAGMA user_version = 7")
+    conn.close()
+    assert store.migrate() == 7 and rows() == [("2026-09-03", "en", 20)]
+
+
+def test_an_unusable_database_stops_the_server_at_startup(monkeypatch, tmp_path):
+    from fastapi.testclient import TestClient
+    import pytest
+
+    monkeypatch.setattr(store, "DB_PATH", tmp_path)  # a directory: SQLite can't open it
+    with pytest.raises(RuntimeError, match="Can't open or update the puzzle database"):
+        with TestClient(main.app):
+            pass

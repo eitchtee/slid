@@ -131,6 +131,12 @@ launch day, like every language.
 
 ## Maintaining
 
+Database changes go through `MIGRATIONS` in `slid/store.py`: the file's `PRAGMA user_version`
+counts the migrations applied, and each one runs once, in order, in its own transaction. To
+change the schema or stored data, append a function; never edit or reorder existing ones. The
+server applies pending migrations at startup and refuses to start if the database can't be
+opened or written.
+
 The win rule lives in two places: `word_cells()` in `slid/puzzle.py` (used to
 generate boards) and `check()` in `slid/static/app.js` (used while playing). Keep
 them in step.

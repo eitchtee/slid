@@ -51,6 +51,10 @@ async def pregenerate_daily() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Before anything else, so a database that can't be opened or written stops the server here
+    # instead of failing on a player's first request.
+    version = store.migrate()
+    log.info("Puzzle database %s is at version %d", store.DB_PATH, version)
     task = asyncio.create_task(pregenerate_daily())
     yield
     task.cancel()
